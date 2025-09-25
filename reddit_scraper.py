@@ -224,37 +224,30 @@ class RedditScraper:
         
         try:
             doc = nlp(text)
-            
-            # Extract entities and keywords
             entities = [ent.text.lower() for ent in doc.ents]
             tokens = [token.lemma_.lower() for token in doc if not token.is_stop and token.is_alpha and len(token.text) > 2]
-            
-            # Combine entities and tokens for analysis
             all_terms = entities + tokens
             
-            # Topic classification based on terms
             topic_scores = {
                 'AI/ML': sum(1 for term in all_terms if any(kw in term for kw in ['ai', 'ml', 'machine', 'learning', 'neural', 'algorithm', 'robot', 'chatgpt'])),
-                'Hardware': sum(1 for term in all_terms if any(kw in term for kw in ['processor', 'chip', 'cpu', 'gpu', 'memory', 'intel', 'amd', 'nvidia', 'semiconductor'])),
-                'Software': sum(1 for term in all_terms if any(kw in term for kw in ['software', 'app', 'code', 'programming', 'api', 'github', 'python', 'javascript'])),
-                'Mobile': sum(1 for term in all_terms if any(kw in term for kw in ['smartphone', 'android', 'ios', 'iphone', 'samsung', 'mobile', 'tablet'])),
-                'Health': sum(1 for term in all_terms if any(kw in term for kw in ['medical', 'health', 'medicine', 'treatment', 'disease', 'healthcare', 'biotech'])),
-                'Biology': sum(1 for term in all_terms if any(kw in term for kw in ['biology', 'dna', 'gene', 'protein', 'cell', 'organism', 'evolution', 'genetic', 'molecular'])),
-                'Security': sum(1 for term in all_terms if any(kw in term for kw in ['security', 'cyber', 'hack', 'malware', 'encryption', 'privacy']))
+                'Hardware': sum(1 for term in all_terms if any(kw in term for kw in ['cpu', 'gpu', 'chip', 'processor', 'memory', 'storage', 'device', 'component'])),
+                'Software': sum(1 for term in all_terms if any(kw in term for kw in ['app', 'software', 'program', 'code', 'update', 'version', 'platform', 'system'])),
+                'Mobile': sum(1 for term in all_terms if any(kw in term for kw in ['phone', 'mobile', 'android', 'ios', 'smartphone', 'tablet', 'app'])),
+                'Health': sum(1 for term in all_terms if any(kw in term for kw in ['health', 'medical', 'patient', 'doctor', 'hospital', 'treatment', 'drug'])),
+                'Biology': sum(1 for term in all_terms if any(kw in term for kw in ['dna', 'gene', 'cell', 'protein', 'biology', 'organism', 'species'])),
+                'Security': sum(1 for term in all_terms if any(kw in term for kw in ['security', 'hack', 'breach', 'cyber', 'privacy', 'encryption', 'vulnerability']))
             }
             
-            # Return top scoring topics
-            if any(score > 0 for score in topic_scores.values()):
-                top_topics = sorted(topic_scores.items(), key=lambda x: x[1], reverse=True)[:2]
-                return ', '.join([topic for topic, score in top_topics if score > 0])
+            max_topic = max(topic_scores, key=topic_scores.get)
+            return max_topic if topic_scores[max_topic] > 0 else 'General'
             
-            return 'General'
-            
-        except Exception as e:
+        except Exception:
             return 'General'
     
-
     def save_posts(self, posts):
+        if not posts:
+            return
+        
         cursor = self.connect_db()
         
         insert_query = """
@@ -265,17 +258,40 @@ class RedditScraper:
         
         for post in posts:
             cursor.execute(insert_query, (
-                post['id'], post['title'], post['author'],
-                post['created_utc'], post['score'], post['num_comments'],
-                post['upvote_ratio'], post['url'], post['domain'],
-                post['keywords'], post['topics'], post['image_text']
+                post['id'], post['title'], post['author'], post['created_utc'],
+                post['score'], post['num_comments'], post['upvote_ratio'],
+                post['url'], post['domain'], post['keywords'], post['topics'], post['image_text']
             ))
         
         self.db_connection.commit()
         cursor.close()
         self.db_connection.close()
+    
+    def scrape_subreddit(self, subreddit_name, total_posts):
+        all_posts = []
+        remaining = total_posts
         
-        return len(posts)
+        while remaining > 0:
+            batch_size = min(remaining, MAX_POSTS_PER_REQUEST)
+            posts = self.fetch_posts_batch(subreddit_name, batch_size)
+            
+            if not posts:
+                break
+                
+            all_posts.extend(posts)
+            remaining -= len(posts)
+            
+            if len(all_posts) % 500 == 0:
+                self.save_posts(all_posts[-500:])
+            
+            time.sleep(REQUEST_DELAY)
+        
+        if all_posts:
+            remaining_posts = all_posts[-(len(all_posts) % 500):] if len(all_posts) % 500 != 0 else []
+            if remaining_posts:
+                self.save_posts(remaining_posts)
+        
+        return len(all_posts)
     
     def scrape_posts(self, num_posts, subreddit='tech'):
         print(f"Starting to scrape {num_posts} posts from r/{subreddit}")
