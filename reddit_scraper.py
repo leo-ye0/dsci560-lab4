@@ -13,7 +13,13 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from config import REDDIT_CONFIG, DB_CONFIG, MAX_POSTS_PER_REQUEST, API_TIMEOUT, REQUEST_DELAY
-import spacy
+
+try:
+    import spacy
+    nlp = spacy.load("en_core_web_sm")
+    USE_SPACY = True
+except:
+    USE_SPACY = False
 
 class RedditScraper:
     def __init__(self):
@@ -205,9 +211,6 @@ class RedditScraper:
                 }
                 posts.append(post_data)
                 
-
-
-                
         except Exception as e:
             print(f"Error fetching posts: {e}")
         
@@ -215,75 +218,9 @@ class RedditScraper:
     
 
     
-    def extract_topics(self, text):
-        if not text or not text.strip():
-            return ""
-        
-        # Enhanced topic modeling using keyword density and semantic grouping
-        topic_keywords = {
-            'AI/ML': {
-                'primary': ['artificial intelligence', 'machine learning', 'neural network', 'deep learning', 'algorithm'],
-                'secondary': ['chatgpt', 'openai', 'robot', 'automation', 'ai', 'ml', 'tensorflow', 'pytorch']
-            },
-            'Software': {
-                'primary': ['software development', 'programming', 'application', 'framework'],
-                'secondary': ['code', 'app', 'library', 'api', 'github', 'python', 'javascript', 'developer']
-            },
-            'Hardware': {
-                'primary': ['processor', 'semiconductor', 'chip', 'hardware'],
-                'secondary': ['cpu', 'gpu', 'memory', 'storage', 'intel', 'amd', 'nvidia']
-            },
-            'Mobile': {
-                'primary': ['smartphone', 'mobile phone', 'android', 'ios'],
-                'secondary': ['iphone', 'samsung', 'google pixel', 'mobile app', 'tablet']
-            },
-            'Gaming': {
-                'primary': ['video game', 'gaming console', 'game development'],
-                'secondary': ['steam', 'xbox', 'playstation', 'nintendo', 'esports', 'gaming']
-            },
-            'Security': {
-                'primary': ['cybersecurity', 'data breach', 'encryption', 'privacy'],
-                'secondary': ['hack', 'malware', 'security', 'cyber', 'vulnerability']
-            },
-            'Internet': {
-                'primary': ['internet', 'web browser', 'network', 'website'],
-                'secondary': ['online', 'wifi', 'broadband', 'connectivity', 'web']
-            },
-            'Health/Medical': {
-                'primary': ['medical technology', 'health tech', 'biotechnology'],
-                'secondary': ['medicine', 'treatment', 'therapy', 'disease', 'healthcare']
-            }
-        }
-        
-        text_lower = text.lower()
-        topic_scores = {}
-        
-        for topic, keyword_groups in topic_keywords.items():
-            score = 0
-            
-            # Primary keywords get higher weight
-            for keyword in keyword_groups['primary']:
-                if keyword in text_lower:
-                    score += 3
-            
-            # Secondary keywords get lower weight
-            for keyword in keyword_groups['secondary']:
-                if keyword in text_lower:
-                    score += 1
-            
-            if score > 0:
-                topic_scores[topic] = score
-        
-        # Return topics sorted by relevance score
-        if topic_scores:
-            sorted_topics = sorted(topic_scores.items(), key=lambda x: x[1], reverse=True)
-            return ', '.join([topic for topic, score in sorted_topics[:3]])  # Top 3 topics
-        
-        return 'General'
-    
     def extract_topics_spacy(self, text):
         if not USE_SPACY or not text:
-            return self.extract_topics(text)
+            return 'General'
         
         try:
             doc = nlp(text)
@@ -314,39 +251,9 @@ class RedditScraper:
             return 'General'
             
         except Exception as e:
-            return self.extract_topics(text)
+            return 'General'
     
-    def extract_topics_lda(self, texts):
-        if not USE_GENSIM or len(texts) < 3:
-            return [self.extract_topics(text) for text in texts]
-        
-        try:
-            processed_texts = []
-            for text in texts:
-                tokens = word_tokenize(text.lower())
-                tokens = [t for t in tokens if len(t) > 2 and t.isalpha()]
-                processed_texts.append(tokens)
-            
-            dictionary = corpora.Dictionary(processed_texts)
-            corpus = [dictionary.doc2bow(text) for text in processed_texts]
-            
-            lda_model = models.LdaModel(corpus, num_topics=6, id2word=dictionary, passes=3)
-            
-            topic_labels = ['AI/ML', 'Hardware', 'Software', 'Mobile', 'Health', 'General']
-            results = []
-            
-            for i, text in enumerate(processed_texts):
-                doc_topics = lda_model[corpus[i]]
-                if doc_topics:
-                    top_topic = max(doc_topics, key=lambda x: x[1])[0]
-                    results.append(topic_labels[top_topic])
-                else:
-                    results.append('General')
-            
-            return results
-        except:
-            return [self.extract_topics(text) for text in texts]
-    
+
     def save_posts(self, posts):
         cursor = self.connect_db()
         
@@ -376,7 +283,7 @@ class RedditScraper:
         total_fetched = 0
         all_posts = []
         request_start_time = time.time()
-        max_runtime = 380  # 380 seconds to stay under 400s limit
+        max_runtime = 380 
         
         while total_fetched < num_posts:
             # Check timeout - stop if approaching 400 seconds
@@ -389,12 +296,11 @@ class RedditScraper:
             # Dynamic batch sizing based on remaining time and posts
             time_remaining = max_runtime - elapsed_total
             
-            if time_remaining < 30:  # Less than 30s left
+            if time_remaining < 30:
                 batch_size = min(remaining, 25)
-            elif time_remaining < 60:  # Less than 60s left
+            elif time_remaining < 60: 
                 batch_size = min(remaining, 50)
             else:
-                # Normal batch size, respect API limits
                 batch_size = min(remaining, min(MAX_POSTS_PER_REQUEST, 100))
             
             print(f"Batch {batch_size} posts... ({total_fetched}/{num_posts}, {time_remaining:.0f}s left)")
