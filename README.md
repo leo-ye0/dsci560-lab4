@@ -1,4 +1,4 @@
-# Reddit Data Collection System - DSCI 560 Lab 4
+# Reddit Data Collection System - DSCI 560 Lab 5
 
 A complete Reddit scraper that fetches posts from r/tech, extracts keywords and topics, handles image OCR, and stores data in MySQL database.
 
