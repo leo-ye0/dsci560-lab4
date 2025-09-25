@@ -13,6 +13,7 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from config import REDDIT_CONFIG, DB_CONFIG, MAX_POSTS_PER_REQUEST, API_TIMEOUT, REQUEST_DELAY
+import spacy
 
 class RedditScraper:
     def __init__(self):
@@ -37,7 +38,6 @@ class RedditScraper:
         if not text:
             return ""
         
-        # Remove special characters and extra whitespace
         text = re.sub(r'[^\w\s]', ' ', text)
         text = re.sub(r'\s+', ' ', text).strip()
         
@@ -52,7 +52,6 @@ class RedditScraper:
             if len(words) < 5:
                 return self.extract_keywords_simple(text)
             
-            # Create mini-corpus
             sentences = []
             for delimiter in ['.', ':', '-', '|', '–']:
                 if delimiter in text:
@@ -69,7 +68,6 @@ class RedditScraper:
             if len(sentences) < 2:
                 return self.extract_keywords_simple(text)
             
-            # Enhanced stop words
             custom_stop = ['new', 'first', 'like', 'go', 'get', 'make', 'use', 'way', 'time', 'year', 'day', 'work', 'world', 'life', 'right', 'good', 'high', 'small', 'large', 'long', 'great', 'little', 'own', 'old', 'different', 'big', 'public', 'bad', 'same', 'able']
             
             vectorizer = TfidfVectorizer(
@@ -84,7 +82,6 @@ class RedditScraper:
             feature_names = vectorizer.get_feature_names_out()
             mean_scores = np.mean(tfidf_matrix.toarray(), axis=0)
             
-            # Filter and deduplicate keywords
             keyword_scores = [(feature_names[i], mean_scores[i]) for i in range(len(feature_names)) if mean_scores[i] > 0]
             keyword_scores.sort(key=lambda x: x[1], reverse=True)
             
@@ -92,11 +89,9 @@ class RedditScraper:
             seen_roots = set()
             
             for keyword, score in keyword_scores:
-                # Skip if contains common words or is too generic
                 if any(word in keyword for word in ['like', 'new', 'first', 'go', 'get']):
                     continue
                 
-                # Check for root word duplicates
                 root = keyword.split()[0] if ' ' in keyword else keyword
                 if root in seen_roots:
                     continue
@@ -118,17 +113,15 @@ class RedditScraper:
             return ""
         
         try:
-            # Try NLTK first
             tokens = word_tokenize(text.lower())
             stop_words = set(stopwords.words('english'))
         except:
-            # Fallback to simple split
             tokens = text.lower().split()
             stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'}
         
         keywords = []
         for word in tokens:
-            clean_word = re.sub(r'[^a-zA-Z]', '', word)  # Remove non-letters
+            clean_word = re.sub(r'[^a-zA-Z]', '', word)
             if (clean_word and 
                 len(clean_word) > 2 and 
                 clean_word not in stop_words and 
@@ -142,18 +135,14 @@ class RedditScraper:
             if not url:
                 return ""
             
-            # Handle various image hosting sites and formats
             image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
             image_hosts = ['imgur.com', 'i.redd.it', 'preview.redd.it', 'i.imgur.com']
             
-            # Check if URL contains image or is from image hosting site
             is_image = (any(ext in url.lower() for ext in image_extensions) or 
                        any(host in url.lower() for host in image_hosts))
             
             if not is_image:
                 return ""
-            
-
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             response = requests.get(url, timeout=15, headers=headers)
@@ -163,16 +152,13 @@ class RedditScraper:
             
             image = Image.open(io.BytesIO(response.content))
             
-            # Convert to RGB if necessary
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             
-            # Use pytesseract with better configuration
             custom_config = r'--oem 3 --psm 6'
             text = pytesseract.image_to_string(image, config=custom_config)
             
             extracted_text = self.preprocess_text(text)
-
             
             return extracted_text
             
@@ -190,24 +176,18 @@ class RedditScraper:
         
         try:
             for post in subreddit.hot(limit=min(limit, MAX_POSTS_PER_REQUEST)):
-                # Skip promoted/advertisement posts
                 if post.stickied or post.distinguished:
                     continue
                 
                 title = self.preprocess_text(post.title)
-                
-                # Extract image text if URL contains image
                 image_text = self.extract_image_text(post.url)
                 
-                # For keyword extraction, use title + image_text
                 text_for_keywords = title
                 if image_text:
                     text_for_keywords += f" {image_text}"
                 
                 keywords = self.extract_keywords_tfidf(text_for_keywords.strip()) if text_for_keywords.strip() else ""
-                topics = self.extract_topics(text_for_keywords.strip()) if text_for_keywords.strip() else ""
-                
-
+                topics = self.extract_topics_spacy(text_for_keywords.strip()) if text_for_keywords.strip() else "General"
                 
                 post_data = {
                     'id': post.id,
@@ -224,6 +204,9 @@ class RedditScraper:
                     'image_text': image_text
                 }
                 posts.append(post_data)
+                
+
+
                 
         except Exception as e:
             print(f"Error fetching posts: {e}")
@@ -297,6 +280,72 @@ class RedditScraper:
             return ', '.join([topic for topic, score in sorted_topics[:3]])  # Top 3 topics
         
         return 'General'
+    
+    def extract_topics_spacy(self, text):
+        if not USE_SPACY or not text:
+            return self.extract_topics(text)
+        
+        try:
+            doc = nlp(text)
+            
+            # Extract entities and keywords
+            entities = [ent.text.lower() for ent in doc.ents]
+            tokens = [token.lemma_.lower() for token in doc if not token.is_stop and token.is_alpha and len(token.text) > 2]
+            
+            # Combine entities and tokens for analysis
+            all_terms = entities + tokens
+            
+            # Topic classification based on terms
+            topic_scores = {
+                'AI/ML': sum(1 for term in all_terms if any(kw in term for kw in ['ai', 'ml', 'machine', 'learning', 'neural', 'algorithm', 'robot', 'chatgpt'])),
+                'Hardware': sum(1 for term in all_terms if any(kw in term for kw in ['processor', 'chip', 'cpu', 'gpu', 'memory', 'intel', 'amd', 'nvidia', 'semiconductor'])),
+                'Software': sum(1 for term in all_terms if any(kw in term for kw in ['software', 'app', 'code', 'programming', 'api', 'github', 'python', 'javascript'])),
+                'Mobile': sum(1 for term in all_terms if any(kw in term for kw in ['smartphone', 'android', 'ios', 'iphone', 'samsung', 'mobile', 'tablet'])),
+                'Health': sum(1 for term in all_terms if any(kw in term for kw in ['medical', 'health', 'medicine', 'treatment', 'disease', 'healthcare', 'biotech'])),
+                'Biology': sum(1 for term in all_terms if any(kw in term for kw in ['biology', 'dna', 'gene', 'protein', 'cell', 'organism', 'evolution', 'genetic', 'molecular'])),
+                'Security': sum(1 for term in all_terms if any(kw in term for kw in ['security', 'cyber', 'hack', 'malware', 'encryption', 'privacy']))
+            }
+            
+            # Return top scoring topics
+            if any(score > 0 for score in topic_scores.values()):
+                top_topics = sorted(topic_scores.items(), key=lambda x: x[1], reverse=True)[:2]
+                return ', '.join([topic for topic, score in top_topics if score > 0])
+            
+            return 'General'
+            
+        except Exception as e:
+            return self.extract_topics(text)
+    
+    def extract_topics_lda(self, texts):
+        if not USE_GENSIM or len(texts) < 3:
+            return [self.extract_topics(text) for text in texts]
+        
+        try:
+            processed_texts = []
+            for text in texts:
+                tokens = word_tokenize(text.lower())
+                tokens = [t for t in tokens if len(t) > 2 and t.isalpha()]
+                processed_texts.append(tokens)
+            
+            dictionary = corpora.Dictionary(processed_texts)
+            corpus = [dictionary.doc2bow(text) for text in processed_texts]
+            
+            lda_model = models.LdaModel(corpus, num_topics=6, id2word=dictionary, passes=3)
+            
+            topic_labels = ['AI/ML', 'Hardware', 'Software', 'Mobile', 'Health', 'General']
+            results = []
+            
+            for i, text in enumerate(processed_texts):
+                doc_topics = lda_model[corpus[i]]
+                if doc_topics:
+                    top_topic = max(doc_topics, key=lambda x: x[1])[0]
+                    results.append(topic_labels[top_topic])
+                else:
+                    results.append('General')
+            
+            return results
+        except:
+            return [self.extract_topics(text) for text in texts]
     
     def save_posts(self, posts):
         cursor = self.connect_db()

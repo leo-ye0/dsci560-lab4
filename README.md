@@ -7,7 +7,7 @@ A complete Reddit scraper that fetches posts from r/tech, extracts keywords and 
 - **Reddit API Integration**: Fetches posts from r/tech subreddit
 - **Data Processing**: Text preprocessing, username masking, domain extraction
 - **Keyword Extraction**: TF-IDF based keyword extraction with fallback
-- **Topic Classification**: AI/ML, Hardware, Software, Mobile, Gaming, Security, etc.
+- **Topic Classification**: AI/ML, Hardware, Software, Mobile, Health, Biology, Security using spaCy NLP
 - **Image OCR**: Extracts text from images using pytesseract
 - **Database Storage**: MySQL database with optimized schema
 - **Periodic Scraping**: Automated data collection at specified intervals
@@ -38,11 +38,16 @@ posts (
    pip install -r requirements.txt
    ```
 
-2. **Configure Reddit API**
+2. **Install spaCy Model**
+   ```bash
+   python -m spacy download en_core_web_sm
+   ```
+
+3. **Configure Reddit API**
    - Create Reddit app at https://www.reddit.com/prefs/apps
    - Update `config.py` with your credentials
 
-3. **Setup Database**
+4. **Setup Database**
    ```bash
    python setup_database.py
    ```
@@ -68,7 +73,7 @@ Press Ctrl+C to stop periodic scraping.
 
 ## Files
 
-- `reddit_scraper.py` - Main scraper with TF-IDF keyword extraction
+- `reddit_scraper.py` - Main scraper with TF-IDF keywords and spaCy topic classification
 - `main.py` - Periodic scraper for automated collection
 - `config.py` - API credentials and database settings
 - `database_setup.sql` - MySQL schema
@@ -78,7 +83,7 @@ Press Ctrl+C to stop periodic scraping.
 ## Data Processing
 
 - **Keywords**: TF-IDF extraction from title + image text with enhanced filtering
-- **Topics**: 8 categories (AI/ML, Hardware, Software, Mobile, Gaming, Security, Internet, Health)
+- **Topics**: 7 categories (AI/ML, Hardware, Software, Mobile, Health, Biology, Security) using spaCy entity recognition
 - **Privacy**: Usernames masked as `user_XXXX` format
 - **Domain**: Source domain extracted (youtube.com, github.com, self.tech)
 - **Images**: OCR text extraction from imgur, i.redd.it using pytesseract
