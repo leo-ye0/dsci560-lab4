@@ -136,18 +136,24 @@ python clusters_use.py
 
 ## Expected Output
 ### Representative Posts
+```bash
 Cluster 0 representative: Scientists develop battery that converts nuclear energy into electricity via light emission
 ...
+```
 
 ### Cluster Keywords
+```bash
 Cluster Keywords:
 Cluster 0 keywords: battery, new, energy, power, ev
 ...
+```
 
 ### Cluster Verification (sample)
+```bash
 Cluster 0 (28 posts) keywords: battery, new, energy, power, ev
 - Scientists develop battery that converts nuclear energy into electricity via light emission
   ...
+```
 
 ## Visualization
 - The 2D PCA scatter plot of clustered posts is automatically saved as **`clusters_use.png`**  
