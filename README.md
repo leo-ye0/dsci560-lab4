@@ -100,3 +100,61 @@ SELECT title, score, keywords FROM posts WHERE score > 100;
 -- Posts by topic
 SELECT * FROM posts WHERE topics LIKE '%AI%';
 ```
+
+## Embedding & Clustering
+
+- **Embedding**: Universal Sentence Encoder (USE, 512-dim)
+    - USE provides high-quality, ready-to-use semantic embeddings
+    - USE captures sentence/document similarity more effectively
+- **Clustering**: KMeans algorithm with configurable `k` (default: 5)
+- **Keywords per Cluster**: Extracted using TF-IDF
+- **Verification**: Each cluster shows representative posts and sample messages
+- **Visualization**: PCA scatter plot of posts with clusters, centroids marked by `X` and cluster IDs
+- **Model Saving**: Clustering results (KMeans, embeddings, texts) saved in `models/cluster_model.pkl` for user interaction
+- 
+### Why Universal Sentence Encoder (USE)?
+
+- **Compatibility and Stability**  
+  Doc2Vec (Gensim) is not fully supported in Python 3.13, while USE is actively maintained by Google TensorFlow Hub. USE provides a ready-to-use API with no training required, making it robust for academic projects.
+
+- **Semantic Understanding**  
+  Doc2Vec learns embeddings mainly from local context in the training corpus, which may be limited if the dataset is small. USE is pre-trained on a large and diverse dataset (Wikipedia, news, Q&A sites, etc.), allowing it to capture general semantic meaning and sentence-level similarity out of the box.
+
+- **High-Dimensional Rich Embeddings**  
+  USE provides 512-dimensional embeddings optimized for semantic similarity tasks (clustering, retrieval, classification). Doc2Vec embeddings are often lower-dimensional and require more fine-tuning to achieve comparable results.
+
+- **Performance on Downstream Tasks**  
+  Benchmarks consistently show that USE outperforms Doc2Vec in clustering and classification tasks where semantic similarity matters. This makes it particularly effective for grouping Reddit posts based on meaning rather than just keyword overlap.
+
+- **Ease of Integration**  
+  USE can be loaded directly from TensorFlow Hub with a single line of code, and requires no additional training. This saves both time and computational resources.
+
+## Usage
+```bash
+python clusters_use.py
+```
+
+## Expected Output
+### Representative Posts
+Cluster 0 representative: Scientists develop battery that converts nuclear energy into electricity via light emission
+...
+
+### Cluster Keywords
+Cluster Keywords:
+Cluster 0 keywords: battery, new, energy, power, ev
+...
+
+### Cluster Verification (sample)
+Cluster 0 (28 posts) keywords: battery, new, energy, power, ev
+- Scientists develop battery that converts nuclear energy into electricity via light emission
+  ...
+
+## Visualization
+- The 2D PCA scatter plot of clustered posts is automatically saved as **`clusters_use.png`**  
+- In the plot:  
+  - **Colors** represent different clusters  
+  - **Black X** marks the centroids  
+  - **Numbers** indicate cluster IDs  
+
+Example:  
+![Clusters Visualization](clusters_use.png)
