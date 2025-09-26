@@ -8,3 +8,9 @@ nltk
 scikit-learn
 numpy
 spacy
+requests
+tensorflow
+tensorflow-hub
+matplotlib
+pytesseract
+tqdm
