@@ -111,7 +111,7 @@ SELECT * FROM posts WHERE topics LIKE '%AI%';
 - **Verification**: Each cluster shows representative posts and sample messages
 - **Visualization**: PCA scatter plot of posts with clusters, centroids marked by `X` and cluster IDs
 - **Model Saving**: Clustering results (KMeans, embeddings, texts) saved in `models/cluster_model.pkl` for user interaction
-- 
+
 ### Why Universal Sentence Encoder (USE)?
 
 - **Compatibility and Stability**  
