@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 def load_posts(limit=500):
     conn = mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="D4o9n1g7!",
+        user="USERNAME",
+        password="PASSWORD",
         database="reddit_data"
     )
     cursor = conn.cursor()
