@@ -13,8 +13,8 @@ REDDIT_CONFIG = {
 # Database Configuration
 DB_CONFIG = {
     'host': 'localhost',
-    'user': 'admin',
-    'password': 'password',
+    'user': 'root',
+    'password': 'Johnnyware@123',
     'database': 'reddit_data'
 }
 

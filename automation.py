@@ -4,33 +4,47 @@ import sys
 import setup_database 
 import reddit_scraper
 import clusters_use
+import subprocess
 
 def automate():
     params = sys.argv[1:]
     hours, minutes, seconds = 0, 0, 0
+    param = params[0]
+    num_post = params[1]
 
-    for param in params:
-        if 'h' in param:
-            num = param.split('h')[0]
-            num = int(num)
-            hours += num
-        elif 'm' in param:
-            num = param.split('m')[0]
-            num = int(num)
-            minutes += num
-        elif 's' in param:
-            num = param.split('s')[0]
-            num = int(num)
-            seconds += num
+    num_str = ''.join(filter(str.isdigit, param))
+
+    num = int(num_str)
+
+    if 'h' in param:
+        hours += num
+    elif 'm' in param:
+        minutes += num
+    elif 's' in param:
+        seconds += num
     
     time_scheduled = hours * 60 * 60 + minutes * 60 + seconds
 
-    print('step 1')
-    schedule.every(time_scheduled).seconds.do(setup_database.setup_database())
-    print('step ')
-    schedule.every(time_scheduled).seconds.do(reddit_scraper.main())
-    print('step 3')
-    schedule.every(time_scheduled).seconds.do(clusters_use.main())
+    count = 0
+
+    def job():
+        nonlocal count
+        count += 1
+        print(f'RUN {count}')
+        print('\nRunning task 1: setup_database.py')
+        setup_database.setup_database()
+        print('\nRunning task 2: reddit_scraper.py')
+        subprocess.run(['python3', 'reddit_scraper.py', str(num_post)])
+        print('\nRunning task 3: clusters_use.py')
+        clusters_use.main()
+        print(f'\nFINISHED RUN {count}')
+        print(f'---\n')
+
+    schedule.every(time_scheduled).seconds.do(job)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 if __name__ == '__main__':
     automate()
