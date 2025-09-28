@@ -1,5 +1,9 @@
 import mysql.connector
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # suppress TF info/warnings
+os.environ['CUDA_VISIBLE_DEVICES'] = ''   # hide GPU info
+import warnings
+warnings.filterwarnings("ignore")
 import pickle
 import numpy as np
 import tensorflow_hub as hub
@@ -12,8 +16,8 @@ import matplotlib.pyplot as plt
 def load_posts(limit=500):
     conn = mysql.connector.connect(
         host="localhost",
-        user="USERNAME",
-        password="PASSWORD",
+        user="root",
+        password="Johnnyware@123",
         database="reddit_data"
     )
     cursor = conn.cursor()
