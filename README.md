@@ -164,3 +164,15 @@ Cluster 0 (28 posts) keywords: battery, new, energy, power, ev
 
 Example:  
 ![Clusters Visualization](clusters_use.png)
+
+## Automation
+Automate the pipeline from Reddit scraping all the way to Embedding, Clustering, and Visualization. 
+
+## Usage
+```bash
+python automation.py <time_interval> <number_of_posts>
+```
+- **time_interval**: 'Xs' for every X seconds, 'Xm' for every X minutes, and 'Xh' for every X hours.
+Example: `python automation.py 1m 100`
+
+- **Manual Stopping**: Ctrl + C
